@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Camera & File Text Extractor</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        margin: 20px;
+      }
+      video,
+      canvas,
+      img {
+        max-width: 100%;
+        width: 600px;
+        margin: 10px 0;
+      }
+      textarea {
+        width: 100%;
+        max-width: 600px;
+        height: 200px;
+        margin-top: 10px;
+        padding: 10px;
+        border: 1px solid #ccc;
+      }
+      .btn {
+        padding: 10px 15px;
+        margin: 5px;
+        border: none;
+        cursor: pointer;
+      }
+      .btn-primary {
+        background-color: #007bff;
+        color: white;
+      }
+      .btn-secondary {
+        background-color: #6c757d;
+        color: white;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Camera & File Text Extractor</h1>
+
+    <video id="camera" autoplay playsinline></video>
+    <canvas id="snapshot" style="display: none"></canvas>
+    <img id="preview" alt="Image Preview" style="display: none" />
+
+    <button class="btn btn-primary" onclick="captureImage()">
+      Capture Image
+    </button>
+    <input type="file" accept="image/*" id="file-input" />
+
+    <textarea
+      id="extracted-text"
+      placeholder="Extracted text will appear here..."
+      readonly
+    ></textarea>
+
+    <button class="btn btn-secondary" onclick="copyText()">Copy Text</button>
+    <button class="btn btn-secondary" onclick="downloadText()">
+      Download Text
+    </button>
+
+    <script src="https://cdn.jsdelivr.net/npm/tesseract.js@2.1.5/dist/tesseract.min.js"></script>
+    <script>
+      const video = document.getElementById("camera");
+      const canvas = document.getElementById("snapshot");
+      const preview = document.getElementById("preview");
+      const extractedTextArea = document.getElementById("extracted-text");
+      const fileInput = document.getElementById("file-input");
+
+      // Start the camera stream
+      navigator.mediaDevices
+        .getUserMedia({ video: true })
+        .then((stream) => {
+          video.srcObject = stream;
+        })
+        .catch((err) => {
+          console.error("Error accessing camera: ", err);
+        });
+
+      // Capture image from video feed and extract text
+      function captureImage() {
+        const context = canvas.getContext("2d");
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        context.drawImage(video, 0, 0, canvas.width, canvas.height);
+        const imageData = canvas.toDataURL("image/png");
+
+        // Show the preview
+        preview.src = imageData;
+        preview.style.display = "block";
+
+        extractText(imageData);
+      }
+
+      // Extract text from uploaded image
+      fileInput.addEventListener("change", (event) => {
+        const file = event.target.files[0];
+        if (file) {
+          const reader = new FileReader();
+          reader.onload = () => {
+            const imageSrc = reader.result;
+
+            // Show the preview
+            preview.src = imageSrc;
+            preview.style.display = "block";
+
+            extractText(imageSrc);
+          };
+          reader.readAsDataURL(file);
+        }
+      });
+
+      // OCR Extraction
+      function extractText(imageSrc) {
+        Tesseract.recognize(imageSrc, "eng", {
+          logger: (info) => console.log(info),
+        })
+          .then(({ data: { text } }) => {
+            extractedTextArea.value = text;
+          })
+          .catch((err) => {
+            console.error("Error:", err);
+            extractedTextArea.value = "Error extracting text";
+          });
+      }
+
+      function copyText() {
+        navigator.clipboard.writeText(extractedTextArea.value).then(() => {
+          alert("Text copied to clipboard!");
+        });
+      }
+
+      function downloadText() {
+        const text = extractedTextArea.value;
+        const element = document.createElement("a");
+        const file = new Blob([text], { type: "text/plain" });
+        element.href = URL.createObjectURL(file);
+        element.download = "extracted_text.txt";
+        document.body.appendChild(element);
+        element.click();
+      }
+    </script>
+  </body>
+</html>
